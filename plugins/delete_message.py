@@ -1,5 +1,5 @@
 import asyncio
-from pyrogram import filters
+from pyrogram import filters, Client
 from pyrogram.types import Message
 
 @Client.on_message(filters.group & (filters.text | filters.photo | filters.video | filters.document))

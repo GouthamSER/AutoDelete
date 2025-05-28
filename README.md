@@ -6,11 +6,8 @@ A Telegram bot built using [Pyrogram](https://docs.pyrogram.org/) that automatic
 
 ## 🚀 Features
 
-- ✅ Auto-deletes **all messages** (including bot's own) after a set time.
+- ✅ Auto-deletes **all messages** (including bot's own) after a set time in environ.
 - 🛡️ Supports **public and private groups**.
-- 👮 Admin-only commands:
-  - `/setdeletetime <minutes>` – set message lifetime.
-  - `/getdeletetime` – check current group-specific delay.
 - 📄 Logs deleted messages to a local file (`log.txt`).
 - ℹ️ `/start` command for both groups and private chats.
 

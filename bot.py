@@ -3,12 +3,10 @@ from pyrogram import Client
 from plugins.webcode import bot_run
 from aiohttp import web as webserver
 import asyncio
+from info import API_ID, API_HASH, BOT_TOKEN
 
 PORT_CODE = int(environ.get("PORT", "8080"))
 
-API_ID = int(environ.get('API_ID', ''))
-API_HASH = environ.get('API_HASH', '')
-BOT_TOKEN = environ.get('BOT_TOKEN', '')
 
 class Bot(Client):
     async def start(self):

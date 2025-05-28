@@ -2,13 +2,12 @@ import os
 import asyncio
 from pyrogram import Client, filters
 from pyrogram.types import Message
+import re
+from os import environ
 
 api_id = int(os.environ.get("API_ID", 0))
 api_hash = os.environ.get("API_HASH", "")
 bot_token = os.environ.get("BOT_TOKEN", "")
-
-if not api_id or not api_hash or not bot_token:
-    raise RuntimeError("Please set API_ID, API_HASH, and BOT_TOKEN environment variables!")
 
 delays = {}
 

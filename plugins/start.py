@@ -2,8 +2,11 @@ from pyrogram import filters, Client
 from pyrogram.types import Message
 
 @Client.on_message(filters.command("start") & filters.private)
-async def start_cmd(client, message: Message):
-    await message.reply_text(
-        "Hello! I'm a message deletion bot.\n"
-        "Use /setdelay <seconds> in groups to set message auto-delete delay."
+async def start_command(client, message):
+    welcome_text = (
+        "👋 Hello!\n\n"
+        "I automatically delete messages sent in groups **1 hour** after they are posted to avoid copyright issues.\n"
+        "I also print all group messages to the terminal for monitoring.\n\n"
+        "Add me to your groups and make sure I have permission to delete messages!"
     )
+    await message.reply_text(welcome_text, disable_web_page_preview=True)

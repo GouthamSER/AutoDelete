@@ -1,3 +1,7 @@
+from pyrogram import filters, Client
+from pyrogram.types import Message
+import asyncio
+
 @Client.on_message(filters.group)
 async def handle_group_message(client, message):
     chat_title = message.chat.title or "Unknown Chat"

@@ -19,8 +19,8 @@ async def handle_group_message(client, message):
     await asyncio.sleep(5)
     try:
         await message.delete()
-        print(f"Deleted message {message.message_id} from {sender_name}")
+        print(f"Deleted message {message.id} from {sender_name}")
     except Exception as e:
-        print(f"Failed to delete message {message.message_id}: {e}")
+        print(f"Failed to delete message {message.id}: {e}")
 
 

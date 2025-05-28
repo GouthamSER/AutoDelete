@@ -107,11 +107,10 @@ def run_api():
     print("🔁 Starting FastAPI for Koyeb health check on port 8080...")
     uvicorn.run(app, host="0.0.0.0", port=8080)
 
-# Run bot with idle loop
+# Run bot
 async def run_bot():
     print("🤖 Starting Telegram Bot...")
-    await bot.start()
-    await bot.idle()
+    await bot.run()
 
 if __name__ == "__main__":
     # Start FastAPI in a separate thread

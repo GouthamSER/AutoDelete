@@ -1,114 +1,143 @@
 import os
 import asyncio
 from pyrogram import Client, filters
-from pyrogram.types import Message
-from pyrogram.errors import ChatAdminRequired
+from pyrogram.errors import FloodWait
 from aiohttp import web
 
-API_ID = int(os.environ["API_ID"])
-API_HASH = os.environ["API_HASH"]
-BOT_TOKEN = os.environ["BOT_TOKEN"]
-PORT_CODE = int(os.environ.get("PORT_CODE", 8080))
+API_ID = int(os.getenv("API_ID", "0"))
+API_HASH = os.getenv("API_HASH")
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+PORT_CODE = int(os.getenv("PORT_CODE", "8080"))  # Set your port or default 8080
 
-group_delete_times = {}
+if not API_ID or not API_HASH or not BOT_TOKEN:
+    raise Exception("API_ID, API_HASH, and BOT_TOKEN must be set as environment variables")
 
-class AutoDeleteBot(Client):
-    def __init__(self):
-        super().__init__(
-            name="AutoDeleteBot",
-            api_id=API_ID,
-            api_hash=API_HASH,
-            bot_token=BOT_TOKEN
-        )
+DEFAULT_DELETE_DELAY = 5
+delete_delay_per_chat = {}
 
-bot = AutoDeleteBot()
+app = Client(
+    "auto_delete_bot",
+    api_id=API_ID,
+    api_hash=API_HASH,
+    bot_token=BOT_TOKEN
+)
 
-async def is_user_admin(chat_id, user_id):
-    try:
-        member = await bot.get_chat_member(chat_id, user_id)
-        return member.status in ["administrator", "creator"]
-    except ChatAdminRequired:
-        return False
+def get_delete_delay(chat_id):
+    return delete_delay_per_chat.get(chat_id, DEFAULT_DELETE_DELAY)
 
-@bot.on_message(filters.group & ~filters.service)
-async def schedule_delete(client: Client, message: Message):
-    group_id = message.chat.id
-    sender = message.from_user.first_name if message.from_user else "Bot"
-    content = message.text or message.caption or "[Non-text message]"
-    delete_time = group_delete_times.get(group_id, 3600)
-
-    print(f"[Scheduled] From: {sender} | Group: {group_id} | Message: {content} | Deleting in {delete_time}s")
-
-    async def delayed_delete():
-        try:
-            await asyncio.sleep(delete_time)
-            await message.delete()
-            with open("log.txt", "a", encoding="utf-8") as log_file:
-                log_file.write(f"[Group: {group_id}] {sender}: {content}\n")
-            print(f"[Deleted] Message from {sender}")
-        except Exception as e:
-            print(f"[Error] Could not delete message: {e}")
-
-    asyncio.create_task(delayed_delete())
-
-@bot.on_message(filters.command("setdeletetime") & filters.group)
-async def set_delete_time(client: Client, message: Message):
-    if not await is_user_admin(message.chat.id, message.from_user.id):
-        return await message.reply("❌ Only admins can set delete time.")
-    try:
-        minutes = int(message.command[1])
-        group_delete_times[message.chat.id] = minutes * 60
-        await message.reply(f"✅ Messages will now be deleted after {minutes} minutes.")
-    except (IndexError, ValueError):
-        await message.reply("⚠️ Usage: /setdeletetime <minutes>")
-
-@bot.on_message(filters.command("getdeletetime") & filters.group)
-async def get_delete_time(client: Client, message: Message):
-    if not await is_user_admin(message.chat.id, message.from_user.id):
-        return await message.reply("❌ Only admins can check delete time.")
-    seconds = group_delete_times.get(message.chat.id, 3600)
-    minutes = seconds // 60
-    await message.reply(f"⏲️ Current delete time: {minutes} minutes.")
-
-@bot.on_message(filters.command("start") & filters.private)
-async def start_private(client: Client, message: Message):
-    await message.reply_text(
-        "👋 I auto-delete messages in your group after a configurable time.\n\n"
-        "Admin commands:\n"
-        "• /setdeletetime <minutes>\n"
-        "• /getdeletetime"
+@app.on_message(filters.command("start") & (filters.private | filters.group))
+async def start_handler(client, message):
+    chat_id = message.chat.id
+    delay = get_delete_delay(chat_id)
+    text = (
+        "🤖 **Auto-Delete Bot**\n\n"
+        "This bot automatically deletes all messages in groups or channels shortly after they are sent, "
+        "including messages from members, admins, and the bot itself.\n\n"
+        f"Messages will be deleted after {delay} seconds.\n\n"
+        "Make sure to add me as an admin with 'Delete Messages' permission to work properly.\n\n"
+        "Admins can change the delay with:\n"
+        "`/setdelay <time>`\n\n"
+        "**Examples:**\n"
+        "`/setdelay 5s` - 5 seconds\n"
+        "`/setdelay 2m` - 2 minutes\n"
+        "`/setdelay 30` - 30 seconds (default unit)\n"
+        "`/setdelay 0` - disable auto-delete"
     )
+    await message.reply(text, parse_mode="markdown")
 
-@bot.on_message(filters.command("start") & filters.group)
-async def start_group(client: Client, message: Message):
-    reply = await message.reply("✅ I'm running! I’ll auto-delete messages after the configured time.")
-    await asyncio.sleep(10)
-    await reply.delete()
+@app.on_message(filters.command("setdelay") & filters.group)
+async def set_delay_handler(client, message):
+    chat_id = message.chat.id
+    from_user = message.from_user
 
-# Simple aiohttp app for health check
-async def handle_health(request):
-    return web.json_response({"status": "ok", "message": "Bot is running."})
+    member = await client.get_chat_member(chat_id, from_user.id)
+    if member.status not in ("administrator", "creator"):
+        await message.reply("❌ Only group admins can change the delete delay.")
+        return
 
-app = web.Application()
-app.add_routes([web.get("/", handle_health)])
+    args = message.text.split()
+    if len(args) != 2:
+        await message.reply(
+            "Usage: /setdelay <time>\n"
+            "Examples:\n"
+            "/setdelay 5s (5 seconds)\n"
+            "/setdelay 2m (2 minutes)\n"
+            "/setdelay 30 (30 seconds)"
+        )
+        return
 
-async def start_webserver():
-    runner = web.AppRunner(app)
+    raw = args[1].lower()
+
+    try:
+        if raw.endswith("s"):
+            delay = int(raw[:-1])
+        elif raw.endswith("m"):
+            delay = int(raw[:-1]) * 60
+        else:
+            delay = int(raw)
+
+        if delay < 0 or delay > 3600:
+            await message.reply("Please provide a delay between 0 and 3600 seconds.")
+            return
+    except ValueError:
+        await message.reply(
+            "Invalid format. Use numbers with optional 's' for seconds or 'm' for minutes.\n"
+            "Examples:\n"
+            "/setdelay 5s\n"
+            "/setdelay 2m\n"
+            "/setdelay 30"
+        )
+        return
+
+    delete_delay_per_chat[chat_id] = delay
+    await message.reply(f"✅ Message auto-delete delay set to {delay} seconds.")
+
+@app.on_message(filters.group | filters.channel)
+async def auto_delete(client, message):
+    chat_id = message.chat.id
+    delay = get_delete_delay(chat_id)
+
+    if delay == 0:
+        return
+
+    await asyncio.sleep(delay)
+
+    try:
+        await message.delete()
+    except FloodWait as e:
+        print(f"Sleeping for {e.x} seconds due to FloodWait...")
+        await asyncio.sleep(e.x)
+        try:
+            await message.delete()
+        except Exception as err:
+            print(f"Failed to delete message {message.message_id} after floodwait: {err}")
+    except Exception as e:
+        print(f"Failed to delete message {message.message_id}: {e}")
+
+# Simple aiohttp handler example
+async def handle(request):
+    return web.Response(text="Auto-Delete Bot is running!")
+
+async def main():
+    await app.start()  # Start Pyrogram client
+
+    # Setup aiohttp webserver
+    runner = web.AppRunner(web.Application())
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", PORT_CODE)
     await site.start()
-    print(f"🔁 Webserver running on port {PORT_CODE}")
 
-async def main():
-    await bot.start()
-    await start_webserver()
-    print("🤖 Bot started. Press Ctrl+C to stop.")
+    print(f"Bot and webserver running on port {PORT_CODE}")
+
+    # Keep running until cancelled
     try:
         while True:
             await asyncio.sleep(3600)
-    except (KeyboardInterrupt, SystemExit):
-        print("🛑 Shutting down...")
-    await bot.stop()
+    except (asyncio.CancelledError, KeyboardInterrupt):
+        print("Stopping...")
+
+    await app.stop()
+    await runner.cleanup()
 
 if __name__ == "__main__":
     asyncio.run(main())

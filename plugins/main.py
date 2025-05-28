@@ -64,24 +64,45 @@ async def get_delete_time(client: Client, message: Message):
     await message.reply(f"🕒 Auto-delete time is set to {time_str}")
 
 # 🧹 Delete text messages after the configured delay
-@Client.on_message(filters.text & filters.group)
+# Log and delete any message
+@Client.on_message(filters.group)
 async def handle_group_message(client: Client, message: Message):
     chat_id = message.chat.id
-    chat_title = message.chat.title or "Unknown Group"
-    sender = message.from_user.first_name if message.from_user else "Unknown User"
-    content = message.text or "Non-text message"
-
-    # 🔍 Log to terminal
-    print(f"[{chat_title} | {chat_id}] {sender}: {content}")
-
     delay = delete_times.get(chat_id)
     if not delay:
-        return  # No deletion set
+        return
+
+    chat_title = message.chat.title or "Unknown Group"
+    sender = message.from_user.first_name if message.from_user else "Unknown User"
+    
+    # Extract a simple description of the message type
+    if message.text:
+        content_type = "Text"
+        preview = message.text
+    elif message.photo:
+        content_type = "Photo"
+        preview = "📷 Photo"
+    elif message.sticker:
+        content_type = "Sticker"
+        preview = f"🧩 Sticker: {message.sticker.emoji}"
+    elif message.video:
+        content_type = "Video"
+        preview = "🎥 Video"
+    elif message.document:
+        content_type = "Document"
+        preview = f"📄 {message.document.file_name}"
+    elif message.audio:
+        content_type = "Audio"
+        preview = f"🎵 {message.audio.title or 'Audio File'}"
+    else:
+        content_type = "Other"
+        preview = "🔸 Non-text message"
+
+    print(f"[{chat_title} | {chat_id}] {sender} sent a {content_type}: {preview}")
 
     await asyncio.sleep(delay)
     try:
         await message.delete()
-        print(f"✅ Deleted message {message.id} from {sender} in '{chat_title}' ({chat_id})")
+        print(f"✅ Deleted {content_type} from {sender} in '{chat_title}'")
     except Exception as e:
-        print(f"❌ Failed to delete message {message.id} from {sender}: {e}")
-
+        print(f"❌ Failed to delete {content_type} from {sender}: {e}")

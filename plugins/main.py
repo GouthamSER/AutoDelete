@@ -2,11 +2,12 @@ from pyrogram import Client, filters
 from pyrogram.types import Message
 import asyncio
 import re
+from info import ADMINS
 
-# In-memory storage
-delete_times = {}  # chat_id -> time in seconds
+# 🧠 In-memory storage for delete times per group
+delete_times = {}  # { chat_id: delay_in_seconds }
 
-# Parse time (e.g., 10s, 5m, 1hr)
+# ⏱️ Parse time string (e.g., "10s", "5m", "1hr")
 def parse_time(time_str):
     match = re.match(r"(\d+)(s|m|h|hr)$", time_str.lower())
     if not match:
@@ -21,15 +22,13 @@ def parse_time(time_str):
         return val * 3600
     return None
 
-# Set delete time (admin-only)
+# 🛠️ Command: /settime 10s | 2m | 1hr (only allowed user IDs)
 @Client.on_message(filters.command("settime") & filters.group)
 async def set_delete_time(client: Client, message: Message):
-    chat_id = message.chat.id
-    user_id = message.from_user.id
+    if message.from_user.id not in ADMINS:
+        return await message.reply("❌ You are not authorized to use this command.")
 
-    member = await client.get_chat_member(chat_id, user_id)
-    if not (member.status in ("administrator", "creator")):
-        return await message.reply("Only admins can set the delete time.")
+    chat_id = message.chat.id
 
     if len(message.command) < 2:
         return await message.reply("Usage: /settime 10s | 2m | 1hr")
@@ -39,11 +38,14 @@ async def set_delete_time(client: Client, message: Message):
         return await message.reply("Invalid format. Use: 10s, 2m, 1hr")
 
     delete_times[chat_id] = seconds
-    await message.reply(f"Auto-delete time set to {message.command[1]}")
+    await message.reply(f"✅ Auto-delete time set to {message.command[1]}")
 
-# Get current delete time
+# ℹ️ Command: /deltime — get current delete time (only allowed user IDs)
 @Client.on_message(filters.command("deltime") & filters.group)
 async def get_delete_time(client: Client, message: Message):
+    if message.from_user.id not in ADMINS:
+        return await message.reply("❌ You are not authorized to use this command.")
+
     chat_id = message.chat.id
     seconds = delete_times.get(chat_id)
 
@@ -57,18 +59,18 @@ async def get_delete_time(client: Client, message: Message):
     else:
         time_str = f"{seconds // 3600}hr"
 
-    await message.reply(f"Auto-delete time is set to {time_str}")
+    await message.reply(f"🕒 Auto-delete time is set to {time_str}")
 
-# Delete text messages after set time
+# 🧹 Auto-delete group text messages after set delay
 @Client.on_message(filters.text & filters.group)
 async def handle_group_message(client: Client, message: Message):
     chat_id = message.chat.id
     delay = delete_times.get(chat_id)
     if not delay:
-        return
+        return  # No deletion configured for this group
 
     await asyncio.sleep(delay)
     try:
         await message.delete()
     except Exception as e:
-        print(f"Failed to delete message: {e}")
+        print(f"❌ Failed to delete message {message.id}: {e}")

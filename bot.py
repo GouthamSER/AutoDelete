@@ -1,20 +1,25 @@
-import os
 import asyncio
+from os import environ
+from datetime import datetime
+
 from pyrogram import Client, filters
 from pyrogram.errors import FloodWait
 from aiohttp import web
 
-API_ID = int(os.getenv("API_ID", "0"))
-API_HASH = os.getenv("API_HASH")
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-PORT_CODE = int(os.getenv("PORT_CODE", "8080"))  # Set your port or default 8080
+# Environment variables
+API_ID = int(environ.get("API_ID", "0"))
+API_HASH = environ.get("API_HASH")
+BOT_TOKEN = environ.get("BOT_TOKEN")
+PORT_CODE = int(environ.get("PORT_CODE", "8080"))
 
 if not API_ID or not API_HASH or not BOT_TOKEN:
     raise Exception("API_ID, API_HASH, and BOT_TOKEN must be set as environment variables")
 
+# Default settings
 DEFAULT_DELETE_DELAY = 5
 delete_delay_per_chat = {}
 
+# Pyrogram client
 app = Client(
     "auto_delete_bot",
     api_id=API_ID,
@@ -22,9 +27,11 @@ app = Client(
     bot_token=BOT_TOKEN
 )
 
+# Helper function to get delete delay
 def get_delete_delay(chat_id):
     return delete_delay_per_chat.get(chat_id, DEFAULT_DELETE_DELAY)
 
+# Start command handler
 @app.on_message(filters.command("start") & (filters.private | filters.group))
 async def start_handler(client, message):
     chat_id = message.chat.id
@@ -45,6 +52,7 @@ async def start_handler(client, message):
     )
     await message.reply(text, parse_mode="markdown")
 
+# Set delay command handler
 @app.on_message(filters.command("setdelay") & filters.group)
 async def set_delay_handler(client, message):
     chat_id = message.chat.id
@@ -92,6 +100,7 @@ async def set_delay_handler(client, message):
     delete_delay_per_chat[chat_id] = delay
     await message.reply(f"✅ Message auto-delete delay set to {delay} seconds.")
 
+# Auto-delete logic with terminal logging
 @app.on_message(filters.group | filters.channel)
 async def auto_delete(client, message):
     chat_id = message.chat.id
@@ -100,44 +109,53 @@ async def auto_delete(client, message):
     if delay == 0:
         return
 
+    msg_content = message.text or message.caption or "[non-text message]"
+    msg_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(f"[{msg_time}] 📥 Message in chat {chat_id} (ID: {message.message_id}): {msg_content}")
+    print(f"--> ⏳ Scheduled to delete in {delay} seconds")
+
     await asyncio.sleep(delay)
 
     try:
         await message.delete()
+        deleted_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"[{deleted_time}] ✅ Deleted message {message.message_id} from chat {chat_id}")
     except FloodWait as e:
-        print(f"Sleeping for {e.x} seconds due to FloodWait...")
+        print(f"⚠️ FloodWait: sleeping for {e.x} seconds...")
         await asyncio.sleep(e.x)
         try:
             await message.delete()
+            deleted_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            print(f"[{deleted_time}] ✅ Deleted message {message.message_id} after waiting")
         except Exception as err:
-            print(f"Failed to delete message {message.message_id} after floodwait: {err}")
+            print(f"❌ Failed to delete message {message.message_id} after FloodWait: {err}")
     except Exception as e:
-        print(f"Failed to delete message {message.message_id}: {e}")
+        print(f"❌ Failed to delete message {message.message_id}: {e}")
 
-# Simple aiohttp handler example
+# Health check web handler
 async def handle(request):
     return web.Response(text="Auto-Delete Bot is running!")
 
+# Main function
 async def main():
-    await app.start()  # Start Pyrogram client
+    await app.start()
 
-    # Setup aiohttp webserver
     runner = web.AppRunner(web.Application())
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", PORT_CODE)
     await site.start()
 
-    print(f"Bot and webserver running on port {PORT_CODE}")
+    print(f"🚀 Bot and webserver running on port {PORT_CODE}")
 
-    # Keep running until cancelled
     try:
         while True:
             await asyncio.sleep(3600)
     except (asyncio.CancelledError, KeyboardInterrupt):
-        print("Stopping...")
+        print("🛑 Stopping bot...")
 
     await app.stop()
     await runner.cleanup()
 
+# Entry point
 if __name__ == "__main__":
     asyncio.run(main())

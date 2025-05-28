@@ -3,10 +3,10 @@ import asyncio
 from pyrogram import Client, filters
 from pyrogram.types import Message
 
-API_ID = int(os.environ["API_ID"])
-API_HASH = os.environ["API_HASH"]
-BOT_TOKEN = os.environ["BOT_TOKEN"]
-GROUP_ID = int(os.environ["GROUP_ID"])
+API_ID = int(os.environ["18979569"])
+API_HASH = os.environ["45db354387b8122bdf6c1b0beef93743"]
+BOT_TOKEN = os.environ["7764616622:AAHUES7ITI0BDrznFi5LfOf6Bpu-_Ti-p6c"]
+GROUP_ID = int(os.environ["-1001589931058"])
 
 class AutoDeleteBot(Client):
     def __init__(self):
@@ -28,7 +28,7 @@ async def schedule_delete(client: Client, message: Message):
 
     async def delayed_delete():
         try:
-            await asyncio.sleep(3600)  # 1 hour delay
+            await asyncio.sleep(10)  # 1 hour delay
             await message.delete()
             print(f"[Deleted] Message from {sender} deleted after 1 hour.")
         except Exception as e:

@@ -15,8 +15,8 @@ async def handle_group_message(client, message):
 
     print(f"[{chat_title} | {chat_id}] {sender_name}: {content}")
 
-    # Schedule deletion after 1 hour
-    await asyncio.sleep(5)
+    # Schedule deletion after 30 min
+    await asyncio.sleep(1800)
     try:
         await message.delete()
         print(f"Deleted message {message.id} from {sender_name}")

@@ -67,6 +67,13 @@ async def get_delete_time(client: Client, message: Message):
 @Client.on_message(filters.text & filters.group)
 async def handle_group_message(client: Client, message: Message):
     chat_id = message.chat.id
+    chat_title = message.chat.title or "Unknown Group"
+    sender = message.from_user.first_name if message.from_user else "Unknown User"
+    content = message.text or "Non-text message"
+
+    # 🔍 Log to terminal
+    print(f"[{chat_title} | {chat_id}] {sender}: {content}")
+
     delay = delete_times.get(chat_id)
     if not delay:
         return  # No deletion set
@@ -74,5 +81,7 @@ async def handle_group_message(client: Client, message: Message):
     await asyncio.sleep(delay)
     try:
         await message.delete()
+        print(f"✅ Deleted message {message.id} from {sender} in '{chat_title}' ({chat_id})")
     except Exception as e:
-        print(f"❌ Failed to delete message {message.id}: {e}")
+        print(f"❌ Failed to delete message {message.id} from {sender}: {e}")
+

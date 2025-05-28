@@ -1,31 +1,22 @@
-from pyrogram import filters, Client
-from pyrogram.types import Message
+@Client.on_message(filters.group)
+async def handle_group_message(client, message):
+    chat_title = message.chat.title or "Unknown Chat"
+    chat_id = message.chat.id
+    sender_name = message.from_user.first_name if message.from_user else "Unknown Sender"
 
-# We'll store delays in bot's "storage" to share between plugins
-# You can attach a dictionary attribute to client for simplicity
-@Client.on_message(filters.command("setdelay") & filters.group)
-async def setdelay_cmd(client, message: Message):
-    # Initialize delay storage dict if not exist
-    if not hasattr(client, "delays"):
-        client.delays = {}
+    if message.text:
+        content = message.text
+    else:
+        content = "Non-text message"
 
-    member = await client.get_chat_member(message.chat.id, message.from_user.id)
-    if member.status not in ("administrator", "creator"):
-        await message.reply_text("Only group admins can set the delay.")
-        return
+    print(f"[{chat_title} | {chat_id}] {sender_name}: {content}")
 
-    if len(message.command) < 2:
-        await message.reply_text("Usage: /setdelay <seconds>")
-        return
-
+    # Schedule deletion after 1 hour
+    await asyncio.sleep(5)
     try:
-        delay = int(message.command[1])
-        if delay < 1:
-            raise ValueError
-    except ValueError:
-        await message.reply_text("Please provide a valid positive integer for seconds.")
-        return
+        await message.delete()
+        print(f"Deleted message {message.message_id} from {sender_name}")
+    except Exception as e:
+        print(f"Failed to delete message {message.message_id}: {e}")
 
-    client.delays[message.chat.id] = delay
-    await message.reply_text(f"Message auto-delete delay set to {delay} seconds.")
-    print(f"[INFO] Delay set to {delay}s for chat '{message.chat.title}' ({message.chat.id})")
+

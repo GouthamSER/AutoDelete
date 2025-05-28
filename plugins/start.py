@@ -1,5 +1,6 @@
 from pyrogram import Client, filters
 from pyrogram.types import Message
+from info import DEL_TIME
 
 @Client.on_message(filters.private & filters.command("start"))
 async def start_command(client: Client, message: Message):

@@ -10,8 +10,8 @@ def is_enabled(value, default):
     else:
         return default
     
-API_ID = int(environ['API_ID'])
-API_HASH = environ['API_HASH']
-BOT_TOKEN = environ['BOT_TOKEN']
+API_ID = int(environ.get('API_ID', 0))
+API_HASH = environ.get('API_HASH', '')
+BOT_TOKEN = environ.get('BOT_TOKEN', '')
 
-DEL_TIME= int(environ['DEL_TIME']) # give in number  like 1 min = 60
+DEL_TIME = int(environ.get('DEL_TIME', 1800))  # default to 1800 seconds if not set

@@ -8,10 +8,6 @@ API_HASH = os.environ["API_HASH"]
 BOT_TOKEN = os.environ["BOT_TOKEN"]
 GROUP_ID = int(os.environ["GROUP_ID"])
 
-API_ID=18979569
-API_HASH=45db354387b8122bdf6c1b0beef93743
-BOT_TOKEN=7764616622:AAHUES7ITI0BDrznFi5LfOf6Bpu-_Ti-p6c
-GROUP_ID=-1001589931058
 
 
 class AutoDeleteBot(Client):

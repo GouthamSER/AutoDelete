@@ -1,27 +1,16 @@
 import os
 import asyncio
-import threading
-from fastapi import FastAPI
-import uvicorn
 from pyrogram import Client, filters
 from pyrogram.types import Message
 from pyrogram.errors import ChatAdminRequired
-from pyrogram.idle import idle
 
 # Load credentials from environment variables
 API_ID = int(os.environ["API_ID"])
 API_HASH = os.environ["API_HASH"]
 BOT_TOKEN = os.environ["BOT_TOKEN"]
 
-# Delete time per group (default is 3600 seconds = 1 hour)
+# Delete time per group (default 3600 seconds = 1 hour)
 group_delete_times = {}
-
-# FastAPI app for Koyeb or Heroku health check
-app = FastAPI()
-
-@app.get("/")
-def root():
-    return {"status": "ok", "message": "Bot is running."}
 
 # Telegram Bot
 class AutoDeleteBot(Client):
@@ -103,24 +92,7 @@ async def start_group(client: Client, message: Message):
     await asyncio.sleep(10)
     await reply.delete()
 
-# Run FastAPI server
-def run_api():
-    print("🔁 Starting FastAPI for health check on port 8080...")
-    uvicorn.run(app, host="0.0.0.0", port=8080)
-
-# Run bot
-async def run_bot():
-    print("🤖 Starting Telegram Bot...")
-    await bot.start()
-    await idle()  # Keeps the bot running
-    await bot.stop()
-
 # Main entry point
 if __name__ == "__main__":
-    # Start FastAPI in a separate thread
-    threading.Thread(target=run_api).start()
-
-    # Start the bot in the event loop
-    loop = asyncio.get_event_loop()
-    loop.create_task(run_bot())
-    loop.run_forever()
+    print("🤖 Starting Telegram Bot...")
+    bot.run()

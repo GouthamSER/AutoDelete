@@ -2,34 +2,38 @@ from pyrogram import Client, filters
 from pyrogram.types import Message
 import asyncio
 import re
-from info import ADMINS  
+from info import ADMINS  # Global admins list
 
 # 🧠 In-memory storage for delete times per group
 delete_times = {}  # { chat_id: delay_in_seconds }
 
 # ⏱️ Parse time string like "10s", "5m", "1hr"
 def parse_time(time_str):
-    match = re.match(r"(\d+)(s|m|h|hr)$", time_str.lower())
+    match = re.match(r"^(\d+)(s|m|h|hr)$", time_str.lower().strip())
     if not match:
         return None
     val, unit = match.groups()
     val = int(val)
-    if unit == "s":
-        return val
-    elif unit == "m":
-        return val * 60
-    elif unit in ("h", "hr"):
-        return val * 3600
-    return None
+    return val * {"s": 1, "m": 60, "h": 3600, "hr": 3600}[unit]
 
-# 🛠️ Command: /settime (only allowed Telegram user IDs)
+# 🔐 Check if user is allowed (global admin or group admin)
+async def is_authorized(client: Client, chat_id: int, user_id: int) -> bool:
+    if user_id in ADMINS:
+        return True
+    try:
+        member = await client.get_chat_member(chat_id, user_id)
+        return member.status in ("administrator", "creator")
+    except Exception:
+        return False
+
+# 🛠️ Command: /settime
 @Client.on_message(filters.command("settime") & filters.group)
 async def set_delete_time(client: Client, message: Message):
     user_id = message.from_user.id if message.from_user else None
-    if user_id not in ADMINS:
-        return await message.reply("❌ You are not authorized to use this command.")
-
     chat_id = message.chat.id
+
+    if not await is_authorized(client, chat_id, user_id):
+        return await message.reply("❌ Only group admins or bot admins can use this command.")
 
     if len(message.command) < 2:
         return await message.reply("Usage: /settime 10s | 2m | 1hr")
@@ -41,16 +45,16 @@ async def set_delete_time(client: Client, message: Message):
     delete_times[chat_id] = seconds
     await message.reply(f"✅ Auto-delete time set to {message.command[1]}")
 
-# ℹ️ Command: /deltime (only allowed user IDs)
+# ℹ️ Command: /deltime
 @Client.on_message(filters.command("deltime") & filters.group)
 async def get_delete_time(client: Client, message: Message):
     user_id = message.from_user.id if message.from_user else None
-    if user_id not in ADMINS:
-        return await message.reply("❌ You are not authorized to use this command.")
-
     chat_id = message.chat.id
-    seconds = delete_times.get(chat_id)
 
+    if not await is_authorized(client, chat_id, user_id):
+        return await message.reply("❌ Only group admins or bot admins can use this command.")
+
+    seconds = delete_times.get(chat_id)
     if not seconds:
         return await message.reply("No auto-delete time set for this group.")
 
@@ -63,8 +67,7 @@ async def get_delete_time(client: Client, message: Message):
 
     await message.reply(f"🕒 Auto-delete time is set to {time_str}")
 
-# 🧹 Delete text messages after the configured delay
-# Log and delete any message
+# 🧹 Delete group messages after the configured delay
 @Client.on_message(filters.group)
 async def handle_group_message(client: Client, message: Message):
     chat_id = message.chat.id
@@ -72,10 +75,13 @@ async def handle_group_message(client: Client, message: Message):
     if not delay:
         return
 
+    # Ignore bot messages
+    if message.from_user and message.from_user.is_bot:
+        return
+
     chat_title = message.chat.title or "Unknown Group"
     sender = message.from_user.first_name if message.from_user else "Unknown User"
-    
-    # Extract a simple description of the message type
+
     if message.text:
         content_type = "Text"
         preview = message.text

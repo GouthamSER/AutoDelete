@@ -19,11 +19,14 @@ def parse_time(time_str):
 # 🔐 Check if user is allowed (global admin or group admin)
 async def is_authorized(client: Client, chat_id: int, user_id: int) -> bool:
     if user_id in ADMINS:
+        print(f"User {user_id} is in global ADMINS.")
         return True
     try:
         member = await client.get_chat_member(chat_id, user_id)
+        print(f"User {user_id} status in group: {member.status}")
         return member.status in ("administrator", "creator")
-    except Exception:
+    except Exception as e:
+        print(f"Failed to fetch member status: {e}")
         return False
 
 # 🛠️ Command: /settime

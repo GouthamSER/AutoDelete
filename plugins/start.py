@@ -1,4 +1,4 @@
-from pyrogram import Client, filters
+from pyrogram import Client, filters, enums
 from pyrogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from info import ADMINS
 
@@ -18,7 +18,7 @@ async def start_command(client: Client, message: Message):
             "3. Use `/settime` to set the auto-delete delay.\n\n"
             "Only specific user IDs (set in `ADMINS`) can configure me."
         ),
-        parse_mode="md",
+        parse_mode=enums.ParseMode.HTML,
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("📚 Help", callback_data="help")],
             [InlineKeyboardButton("➕ Add to Group", url=f"https://t.me/{client.me.username}?startgroup=true")]

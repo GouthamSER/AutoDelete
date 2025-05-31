@@ -67,7 +67,7 @@ async def get_delete_time(client: Client, message: Message):
 
     await message.reply(f"🕒 Auto-delete time is set to {time_str}")
 
-# Delete **all** group messages after the configured delay, including bot messages
+# Delete all group messages after the configured delay, printing info before deleting
 @Client.on_message(filters.group)
 async def handle_group_message(client: Client, message: Message):
     chat_id = message.chat.id
@@ -75,9 +75,31 @@ async def handle_group_message(client: Client, message: Message):
     if not delay:
         return
 
-    # Delete every message after delay, no filter on user type
+    # Prepare message preview
+    if message.text:
+        preview = message.text
+    elif message.photo:
+        preview = "📷 Photo"
+    elif message.sticker:
+        preview = f"🧩 Sticker: {message.sticker.emoji}"
+    elif message.video:
+        preview = "🎥 Video"
+    elif message.document:
+        preview = f"📄 {message.document.file_name}"
+    elif message.audio:
+        preview = f"🎵 {message.audio.title or 'Audio File'}"
+    else:
+        preview = "🔸 Non-text message"
+
+    sender = message.from_user.first_name if message.from_user else "Unknown"
+    chat_title = message.chat.title or "Unknown Group"
+
+    print(f"[{chat_title} | {chat_id}] {sender} sent: {preview}")
+
+    # Wait and delete
     await asyncio.sleep(delay)
     try:
         await message.delete()
+        print(f"✅ Deleted message from {sender} in '{chat_title}'")
     except Exception as e:
-        print(f"Failed to delete message in {chat_id}: {e}")
+        print(f"❌ Failed to delete message: {e}")

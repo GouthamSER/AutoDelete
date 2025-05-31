@@ -43,7 +43,7 @@ async def callback_query_handler(client: Client, callback_query: CallbackQuery):
                 "⚙️ Only admin IDs listed in `ADMINS` can use these commands.\n"
                 "Supported formats: `10s`, `2m`, `1hr`"
             ),
-            parse_mode="md",
+            parse_mode=enums.ParseMode.HTML,
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("🔙 Back", callback_data="back")]
             ])
@@ -62,7 +62,7 @@ async def callback_query_handler(client: Client, callback_query: CallbackQuery):
                 "3. Use `/settime` to set the auto-delete delay.\n\n"
                 "Only specific user IDs (set in `ADMINS`) can configure me."
             ),
-            parse_mode="md",
+            parse_mode=enums.ParseMode.HTML,
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("📚 Help", callback_data="help")],
                 [InlineKeyboardButton("➕ Add to Group", url=f"https://t.me/{client.me.username}?startgroup=true")]

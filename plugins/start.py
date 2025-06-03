@@ -73,20 +73,11 @@ async def callback_query_handler(client: Client, callback_query: CallbackQuery):
 
 # /restart command for admins only
 @Client.on_message(filters.command("restart") & filters.user(ADMINS))
-async def restart_command(client: Client, message: Message):
-    try:
-        # Send PM confirmation to user
-        await client.send_message(
-            message.from_user.id,
-            "🔁 Bot is restarting as requested..."
-        )
-    except Exception as e:
-        print(f"[WARN] Couldn't send PM to user: {e}")
-
-    await message.reply("Restarting bot...")
-
-    await client.stop()
-    os.execv(sys.executable, [sys.executable] + sys.argv)
+async def stop_button(bot, message):
+    msg = await bot.send_message(text="**𝖡𝗈𝗍 𝖨𝗌 𝖱𝖾𝗌𝗍𝖺𝗋𝗍𝗂𝗇𝗀...🪄**", chat_id=message.chat.id)       
+    await asyncio.sleep(3)
+    await msg.edit("**𝖡𝗈𝗍 𝖱𝖾𝗌𝗍𝖺𝗋𝗍𝖾𝖽 𝖲𝗎𝖼𝖼𝖾𝗌𝗌𝖿𝗎𝗅𝗅𝗒 ! 𝖱𝖾𝖺𝖽𝗒 𝖳𝗈 𝖬𝗈𝗏𝖾 𝖮𝗇 💯**")
+    os.execl(sys.executable, sys.executable, *sys.argv)
 
 # Optional: deny restart command to non-admins
 @Client.on_message(filters.command("restart") & ~filters.user(ADMINS))

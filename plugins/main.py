@@ -3,11 +3,11 @@ from pyrogram.types import Message
 import asyncio
 import re
 from info import ADMINS  # Your global admins list
+from db import set_delete_time as db_set_time, get_delete_time as db_get_time, load_all_delete_times
 
-# In-memory storage for delete times per group
-delete_times = {}  # { chat_id: delay_in_seconds }
+# In-memory storage (loaded from DB at startup)
+delete_times = load_all_delete_times()
 
-# Parse time strings like "10s", "5m", "1hr"
 def parse_time(time_str):
     match = re.match(r"^(\d+)(s|m|h|hr)$", time_str.lower().strip())
     if not match:
@@ -16,7 +16,6 @@ def parse_time(time_str):
     val = int(val)
     return val * {"s": 1, "m": 60, "h": 3600, "hr": 3600}[unit]
 
-# Check if user is allowed (global admin or group admin)
 async def is_authorized(client: Client, chat_id: int, user_id: int) -> bool:
     if user_id in ADMINS:
         return True
@@ -26,7 +25,6 @@ async def is_authorized(client: Client, chat_id: int, user_id: int) -> bool:
     except:
         return False
 
-# Command: /settime - set auto-delete delay
 @Client.on_message(filters.command("settime") & filters.group)
 async def set_delete_time(client: Client, message: Message):
     user_id = message.from_user.id if message.from_user else None
@@ -43,9 +41,9 @@ async def set_delete_time(client: Client, message: Message):
         return await message.reply("Invalid format. Use: 10s, 2m, 1hr")
 
     delete_times[chat_id] = seconds
+    db_set_time(chat_id, seconds)  # Save to DB
     await message.reply(f"✅ Auto-delete time set to {message.command[1]}")
 
-# Command: /deltime - show current delete timer
 @Client.on_message(filters.command("deltime") & filters.group)
 async def get_delete_time(client: Client, message: Message):
     user_id = message.from_user.id if message.from_user else None
@@ -54,7 +52,7 @@ async def get_delete_time(client: Client, message: Message):
     if not await is_authorized(client, chat_id, user_id):
         return await message.reply("❌ Only group admins or bot admins can use this command.")
 
-    seconds = delete_times.get(chat_id)
+    seconds = db_get_time(chat_id)
     if not seconds:
         return await message.reply("No auto-delete time set for this group.")
 
@@ -67,15 +65,15 @@ async def get_delete_time(client: Client, message: Message):
 
     await message.reply(f"🕒 Auto-delete time is set to {time_str}")
 
-# Delete all group messages after the configured delay, printing info before deleting
-@Client.on_message(filters.group)
+@Client.on_message(filters.group & ~filters.command(["settime", "deltime"]))
 async def handle_group_message(client: Client, message: Message):
     chat_id = message.chat.id
     delay = delete_times.get(chat_id)
+
     if not delay:
         return
 
-    # Prepare message preview
+    # Message preview
     if message.text:
         preview = message.text
     elif message.photo:

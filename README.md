@@ -1,36 +1,32 @@
-# 🧹 Telegram Auto-Delete Bot
+# 🧹 Telegram Auto-Delete Bot (Pyrogram)
 
-A powerful yet simple Telegram bot built with [Pyrogram](https://docs.pyrogram.org/) to **automatically delete group messages** after a configurable delay. Ideal for maintaining clean and time-sensitive discussion groups.
-
----
-
-## 🚀 Features
-
-- ⏱️ Configurable auto-delete timer per group
-- 🔒 Command access restricted to specific Telegram user IDs
-- 📋 Supports duration in `seconds`, `minutes`, or `hours` (e.g. `30s`, `5m`, `1hr`)
-- 📥 Logs message content and deletion status to the terminal
-- 💬 Handles only text messages (non-text types can be added easily)
+This is a simple Telegram bot built using **Pyrogram**. It automatically deletes messages in group chats after a specified delay (like `10s`, `2m`, `1hr`) and persists the settings using **SQLite** so the timers remain active even after bot restarts.
 
 ---
 
-## ⚙️ Environment Variables
+## ⚙️ Features
 
-Set the following environment variables in your `.env` file or hosting platform (e.g., Heroku):
+- Set auto-delete timer per group using `/settime`
+- Check current timer using `/deltime`
+- Auto-delete any message after the configured delay
+- Admin-only access control
+- Persistent settings using SQLite
 
-| Variable     | Description                                      |
-|--------------|--------------------------------------------------|
-| `API_ID`     | Telegram API ID from [my.telegram.org](https://my.telegram.org) |
-| `API_HASH`   | Telegram API Hash                                |
-| `BOT_TOKEN`  | Bot token from [@BotFather](https://t.me/BotFather) |
-| `ADMINS`     | Space-separated list of Telegram user IDs allowed to use commands |
-| `DEL_TIME`   | (Optional) Default auto-delete time in seconds   |
+---
 
-**Example `.env` file:**
+## 🚀 Commands
 
-```env
-API_ID=123456
-API_HASH=abcdef1234567890abcdef1234567890
-BOT_TOKEN=123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11
-ADMINS=8435734848 1122334455
-DEL_TIME=600
+| Command       | Description                                 | Access       |
+|---------------|---------------------------------------------|--------------|
+| `/settime 10s`| Set message delete timer (e.g., 10s, 2m)    | Admins only  |
+| `/deltime`    | Show current delete timer                   | Admins only  |
+
+---
+
+## 🛠️ Setup Instructions
+
+### 1. Clone the Repo
+
+```bash
+git clone https://github.com/yourusername/telegram-auto-delete-bot.git
+cd telegram-auto-delete-bot

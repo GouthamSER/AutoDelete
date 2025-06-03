@@ -3,7 +3,7 @@ from pyrogram.types import Message
 import asyncio
 import re
 from info import ADMINS  # Your global admins list
-from db import set_delete_time as db_set_time, get_delete_time as db_get_time, load_all_delete_times
+from plugins.db import set_delete_time as db_set_time, get_delete_time as db_get_time, load_all_delete_times
 
 # In-memory storage (loaded from DB at startup)
 delete_times = load_all_delete_times()

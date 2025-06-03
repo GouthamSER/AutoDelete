@@ -1,6 +1,8 @@
+import os
+import sys
 from pyrogram import Client, filters, enums
 from pyrogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
-from info import ADMINS
+from info import ADMINS  # Make sure ADMINS is a list of admin user IDs
 
 # /start command handler
 @Client.on_message(filters.command("start"))
@@ -68,3 +70,25 @@ async def callback_query_handler(client: Client, callback_query: CallbackQuery):
                 [InlineKeyboardButton("➕ Add to Group", url=f"https://t.me/{client.me.username}?startgroup=true")]
             ])
         )
+
+# /restart command for admins only
+@Client.on_message(filters.command("restart") & filters.user(ADMINS))
+async def restart_command(client: Client, message: Message):
+    try:
+        # Send PM confirmation to user
+        await client.send_message(
+            message.from_user.id,
+            "🔁 Bot is restarting as requested..."
+        )
+    except Exception as e:
+        print(f"[WARN] Couldn't send PM to user: {e}")
+
+    await message.reply("Restarting bot...")
+
+    await client.stop()
+    os.execv(sys.executable, [sys.executable] + sys.argv)
+
+# Optional: deny restart command to non-admins
+@Client.on_message(filters.command("restart") & ~filters.user(ADMINS))
+async def restart_denied(client: Client, message: Message):
+    await message.reply("❌ You are not authorized to restart the bot.")

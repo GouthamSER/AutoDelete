@@ -2,9 +2,8 @@ from pyrogram import Client, filters
 from pyrogram.types import Message
 import asyncio
 import re
-from info import ADMINS  # <-- Global bot admin(s)
+from info import ADMINS  # Global bot admin(s)
 
-# In-memory delete time store
 delete_times = {}
 
 def parse_time(time_str):
@@ -65,40 +64,30 @@ async def get_delete_time(client: Client, message: Message):
     print(f"🕒 Group {chat_id} has delete time: {time_str}")
     await message.reply(f"🕒 Auto-delete time is set to {time_str}")
 
+# ✅ This handles ALL messages in group (users + bots)
 @Client.on_message(filters.group & ~filters.command(["settime", "deltime"]))
-async def auto_delete_user_messages(client: Client, message: Message):
+async def auto_delete_all_messages(client: Client, message: Message):
     chat_id = message.chat.id
     delay = delete_times.get(chat_id)
-
     if not delay:
         return
 
-    preview = message.text[:50] if message.text else "Non-text message"
-    sender = message.from_user.first_name if message.from_user else "Unknown"
+    # Skip service messages like joined/left
+    if message.service:
+        return
 
-    print(f"[{chat_id}] User '{sender}' sent: {preview}")
+    sender = (
+        f"{message.from_user.first_name} (bot)" if message.from_user and message.from_user.is_bot
+        else message.from_user.first_name if message.from_user
+        else "Unknown"
+    )
+    preview = message.text[:50] if message.text else "📎 Media or system message"
+
+    print(f"[{chat_id}] {sender} sent: {preview}")
 
     await asyncio.sleep(delay)
     try:
         await message.delete()
-        print(f"✅ Deleted user message from '{sender}' in chat {chat_id}")
+        print(f"✅ Deleted message from {sender} in chat {chat_id}")
     except Exception as e:
-        print(f"❌ Failed to delete user message: {e}")
-
-@Client.on_message(filters.group & filters.me & filters.text)
-async def auto_delete_bot_messages(client: Client, message: Message):
-    chat_id = message.chat.id
-    delay = delete_times.get(chat_id)
-
-    if not delay:
-        return
-
-    preview = message.text[:50]
-    print(f"[{chat_id}] Bot sent: {preview}")
-
-    await asyncio.sleep(delay)
-    try:
-        await message.delete()
-        print(f"✅ Deleted bot message in chat {chat_id}")
-    except Exception as e:
-        print(f"❌ Failed to delete bot message: {e}")
+        print(f"❌ Failed to delete message from {sender}: {e}")

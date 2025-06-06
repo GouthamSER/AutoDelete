@@ -1,8 +1,8 @@
-from pyrogram import Client, filters
-from pyrogram.types import Message
+from pyrogram import *
+from pyrogram.types import *
 import asyncio
 import re
-from info import ADMINS  # Global bot admin(s)
+from info import ADMINS  # List of bot admin user IDs
 
 delete_times = {}
 
@@ -23,6 +23,22 @@ async def is_authorized(client: Client, chat_id: int, user_id: int) -> bool:
     except:
         return False
 
+async def delete_user_message(msg: Message, delay: int):
+    await asyncio.sleep(delay)
+    try:
+        await msg.delete()
+        print(f"✅ Deleted message from {msg.from_user.first_name if msg.from_user else 'Unknown'} in {msg.chat.id}")
+    except Exception as e:
+        print(f"❌ Failed to delete user message: {e}")
+
+async def delete_bot_message(msg: Message, delay: int):
+    await asyncio.sleep(delay)
+    try:
+        await msg.delete()
+        print(f"✅ Deleted bot message in chat {msg.chat.id}")
+    except Exception as e:
+        print(f"❌ Failed to delete bot message: {e}")
+
 @Client.on_message(filters.command("settime") & filters.group)
 async def set_delete_time(client: Client, message: Message):
     user_id = message.from_user.id
@@ -39,8 +55,9 @@ async def set_delete_time(client: Client, message: Message):
         return await message.reply("Invalid format. Use: 10s, 2m, 1hr")
 
     delete_times[chat_id] = seconds
-    print(f"✅ Auto-delete time set to {seconds}s for chat {chat_id}")
-    await message.reply(f"✅ Auto-delete time set to {message.command[1]}")
+    print(f"🛠️ Auto-delete time set to {seconds}s for chat {chat_id}")
+    msg = await message.reply(f"✅ Auto-delete time set to {message.command[1]}")
+    await delete_bot_message(msg, seconds)
 
 @Client.on_message(filters.command("deltime") & filters.group)
 async def get_delete_time(client: Client, message: Message):
@@ -61,33 +78,24 @@ async def get_delete_time(client: Client, message: Message):
     else:
         time_str = f"{seconds // 3600}hr"
 
-    print(f"🕒 Group {chat_id} has delete time: {time_str}")
-    await message.reply(f"🕒 Auto-delete time is set to {time_str}")
+    print(f"ℹ️ Group {chat_id} has delete time: {time_str}")
+    msg = await message.reply(f"🕒 Auto-delete time is set to {time_str}")
+    await delete_bot_message(msg, seconds)
 
-# ✅ This handles ALL messages in group (users + bots)
-@Client.on_message(filters.group & ~filters.command(["settime", "deltime"]))
-async def auto_delete_all_messages(client: Client, message: Message):
+# Handles ALL group messages, including bots & system
+@Client.on_message(filters.group)
+async def auto_delete_everything(client: Client, message: Message):
     chat_id = message.chat.id
     delay = delete_times.get(chat_id)
     if not delay:
         return
 
-    # Skip service messages like joined/left
-    if message.service:
-        return
-
-    sender = (
-        f"{message.from_user.first_name} (bot)" if message.from_user and message.from_user.is_bot
-        else message.from_user.first_name if message.from_user
-        else "Unknown"
+    sender_name = (
+        message.from_user.first_name if message.from_user else
+        ("System" if message.service else "Unknown")
     )
-    preview = message.text[:50] if message.text else "📎 Media or system message"
 
-    print(f"[{chat_id}] {sender} sent: {preview}")
+    content = message.text or message.caption or "📎 Non-text message"
+    print(f"[{chat_id}] {sender_name} sent: {content[:50]}")
 
-    await asyncio.sleep(delay)
-    try:
-        await message.delete()
-        print(f"✅ Deleted message from {sender} in chat {chat_id}")
-    except Exception as e:
-        print(f"❌ Failed to delete message from {sender}: {e}")
+    await delete_user_message(message, delay)

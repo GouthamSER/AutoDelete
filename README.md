@@ -1,32 +1,24 @@
-# 🧹 Telegram Auto-Delete Bot (Pyrogram)
+# 🧹 Telegram Auto-Delete Bot
 
-This is a simple Telegram bot built using **Pyrogram**. It automatically deletes messages in group chats after a specified delay (like `10s`, `2m`, `1hr`) and persists the settings using **SQLite** so the timers remain active even after bot restarts.
+A Telegram group bot built using [Pyrogram](https://docs.pyrogram.org/) that auto-deletes all group messages after a specified time. Useful for privacy-focused or clutter-free group chats.
 
----
+## 🚀 Features
 
-## ⚙️ Features
+- Automatically deletes **all messages** in a group after a set delay.
+- Admins can set or check the current auto-delete timer.
+- Supports time formats: seconds (`s`), minutes (`m`), and hours (`hr`).
+- Only **group admins** or **bot admins** (defined manually) can manage the timer.
 
-- Set auto-delete timer per group using `/settime`
-- Check current timer using `/deltime`
-- Auto-delete any message after the configured delay
-- Admin-only access control
-- Persistent settings using SQLite
+## 📦 Requirements
 
----
+- Python 3.7+
+- A Telegram Bot Token from [BotFather](https://t.me/BotFather)
+- [Pyrogram](https://docs.pyrogram.org/) and [TG Crypto](https://pypi.org/project/tgcrypto/)
 
-## 🚀 Commands
+## 🔧 Installation
 
-| Command       | Description                                 | Access       |
-|---------------|---------------------------------------------|--------------|
-| `/settime 10s`| Set message delete timer (e.g., 10s, 2m)    | Admins only  |
-| `/deltime`    | Show current delete timer                   | Admins only  |
-
----
-
-## 🛠️ Setup Instructions
-
-### 1. Clone the Repo
+1. Clone this repo:
 
 ```bash
-git clone https://github.com/yourusername/telegram-auto-delete-bot.git
+git clone https://github.com/GouthamSER/AutoDelete.git
 cd telegram-auto-delete-bot

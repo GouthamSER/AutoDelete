@@ -15,9 +15,6 @@ def parse_time(time_str):
     val = int(val)
     return val * {"s": 1, "m": 60, "h": 3600, "hr": 3600}[unit]
 
-async def is_bot_admin(user_id: int) -> bool:
-    return user_id in ADMINS
-
 async def is_authorized(client: Client, chat_id: int, user_id: int) -> bool:
     if user_id in ADMINS:
         return True
@@ -62,9 +59,9 @@ async def set_delete_time(client: Client, message: Message):
     user_id = message.from_user.id
     chat_id = message.chat.id
 
-    if not await is_bot_admin(user_id):
+    if not await is_authorized(client, chat_id, user_id):
         print(f"Unauthorized /settime attempt by {message.from_user.first_name} (ID: {user_id}) in chat {chat_id}")
-        return await message.reply("❌ Only bot admins can use this command.")
+        return await message.reply("❌ Only group/channel admins or bot admins can use this command.")
 
     if len(message.command) < 2:
         return await message.reply("Usage: /settime 10s | 2m | 1hr")
@@ -83,9 +80,9 @@ async def get_delete_time(client: Client, message: Message):
     user_id = message.from_user.id
     chat_id = message.chat.id
 
-    if not await is_bot_admin(user_id):
+    if not await is_authorized(client, chat_id, user_id):
         print(f"Unauthorized /deltime attempt by {message.from_user.first_name} (ID: {user_id}) in chat {chat_id}")
-        return await message.reply("❌ Only bot admins can use this command.")
+        return await message.reply("❌ Only group/channel admins or bot admins can use this command.")
 
     seconds = delete_times.get(chat_id, DEFAULT_DELETE_TIME)
     if seconds < 60:
@@ -104,9 +101,9 @@ async def check_admin_status(client: Client, message: Message):
     user_id = message.from_user.id
     chat_id = message.chat.id
 
-    if not await is_bot_admin(user_id):
+    if not await is_authorized(client, chat_id, user_id):
         print(f"Unauthorized /checkadmin attempt by {message.from_user.first_name} (ID: {user_id}) in chat {chat_id}")
-        return await message.reply("❌ Only bot admins can use this command.")
+        return await message.reply("❌ Only group/channel admins or bot admins can use this command.")
 
     # Determine target user
     target_user_id = None

@@ -5,6 +5,7 @@ import re
 from info import ADMINS  # List of bot admin user IDs
 
 delete_times = {}
+DEFAULT_DELETE_TIME = 300  # Default delete time (5 minutes) if none is set
 
 def parse_time(time_str):
     match = re.match(r"^(\d+)(s|m|h|hr)$", time_str.lower().strip())
@@ -14,15 +15,31 @@ def parse_time(time_str):
     val = int(val)
     return val * {"s": 1, "m": 60, "h": 3600, "hr": 3600}[unit]
 
+async def is_bot_admin(user_id: int) -> bool:
+    return user_id in ADMINS
+
 async def is_authorized(client: Client, chat_id: int, user_id: int) -> bool:
     if user_id in ADMINS:
         return True
     try:
         member = await client.get_chat_member(chat_id, user_id)
-        return member.status in ("administrator", "creator", "owner")
+        return member.status in ("administrator", "creator")
     except Exception as e:
         print(f"Authorization check failed: {e}")
         return False
+
+async def get_user_status(client: Client, chat_id: int, user_id: int) -> str:
+    try:
+        member = await client.get_chat_member(chat_id, user_id)
+        if member.status == "creator":
+            return "creator (owner)"
+        elif member.status == "administrator":
+            return "administrator"
+        else:
+            return "not an admin or creator"
+    except Exception as e:
+        print(f"Failed to check user status: {e}")
+        return "unknown (possibly not in the group/channel or bot lacks permissions)"
 
 async def delete_user_message(msg: Message, delay: int):
     await asyncio.sleep(delay)
@@ -45,8 +62,9 @@ async def set_delete_time(client: Client, message: Message):
     user_id = message.from_user.id
     chat_id = message.chat.id
 
-    if not await is_authorized(client, chat_id, user_id):
-        return await message.reply("❌ Only group admins or bot admins can use this command.")
+    if not await is_bot_admin(user_id):
+        print(f"Unauthorized /settime attempt by {message.from_user.first_name} (ID: {user_id}) in chat {chat_id}")
+        return await message.reply("❌ Only bot admins can use this command.")
 
     if len(message.command) < 2:
         return await message.reply("Usage: /settime 10s | 2m | 1hr")
@@ -65,13 +83,11 @@ async def get_delete_time(client: Client, message: Message):
     user_id = message.from_user.id
     chat_id = message.chat.id
 
-    if not await is_authorized(client, chat_id, user_id):
-        return await message.reply("❌ Only group admins or bot admins can use this command.")
+    if not await is_bot_admin(user_id):
+        print(f"Unauthorized /deltime attempt by {message.from_user.first_name} (ID: {user_id}) in chat {chat_id}")
+        return await message.reply("❌ Only bot admins can use this command.")
 
-    seconds = delete_times.get(chat_id)
-    if not seconds:
-        return await message.reply("No auto-delete time set for this group.")
-
+    seconds = delete_times.get(chat_id, DEFAULT_DELETE_TIME)
     if seconds < 60:
         time_str = f"{seconds}s"
     elif seconds < 3600:
@@ -83,18 +99,41 @@ async def get_delete_time(client: Client, message: Message):
     msg = await message.reply(f"🕒 Auto-delete time is set to {time_str}")
     await delete_bot_message(msg, seconds)
 
+@Client.on_message(filters.command("checkadmin") & filters.group)
+async def check_admin_status(client: Client, message: Message):
+    user_id = message.from_user.id
+    chat_id = message.chat.id
+
+    if not await is_bot_admin(user_id):
+        print(f"Unauthorized /checkadmin attempt by {message.from_user.first_name} (ID: {user_id}) in chat {chat_id}")
+        return await message.reply("❌ Only bot admins can use this command.")
+
+    # Determine target user
+    target_user_id = None
+    target_user_name = "Unknown"
+    
+    if message.reply_to_message and message.reply_to_message.from_user:
+        target_user_id = message.reply_to_message.from_user.id
+        target_user_name = message.reply_to_message.from_user.first_name
+    elif len(message.command) > 1 and message.command[1].isdigit():
+        target_user_id = int(message.command[1])
+    else:
+        return await message.reply("Please reply to a user’s message or provide a user ID (e.g., /checkadmin 123456789).")
+
+    # Check target user's status
+    status = await get_user_status(client, chat_id, target_user_id)
+    msg = await message.reply(f"User {target_user_name} (ID: {target_user_id}) is {status} in this group/channel.")
+    await delete_bot_message(msg, delete_times.get(chat_id, DEFAULT_DELETE_TIME))
+
 @Client.on_message(filters.group)
 async def auto_delete_everything(client: Client, message: Message):
     chat_id = message.chat.id
-    delay = delete_times.get(chat_id)
-    if not delay:
-        return
+    delay = delete_times.get(chat_id, DEFAULT_DELETE_TIME)
 
     sender_name = (
         message.from_user.first_name if message.from_user else
         ("System" if message.service else "Unknown")
     )
-
     content = message.text or message.caption or "📎 Non-text message"
     print(f"[{chat_id}] {sender_name} sent: {content[:50]}")
 

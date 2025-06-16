@@ -1,5 +1,5 @@
-from pyrogram import *
-from pyrogram.types import *
+from pyrogram import Client, filters
+from pyrogram.types import Message
 import asyncio
 import re
 from info import ADMINS  # List of bot admin user IDs
@@ -19,8 +19,9 @@ async def is_authorized(client: Client, chat_id: int, user_id: int) -> bool:
         return True
     try:
         member = await client.get_chat_member(chat_id, user_id)
-        return member.status in ("administrator", "creator")
-    except:
+        return member.status in ("administrator", "creator", "owner")
+    except Exception as e:
+        print(f"Authorization check failed: {e}")
         return False
 
 async def delete_user_message(msg: Message, delay: int):
@@ -82,7 +83,6 @@ async def get_delete_time(client: Client, message: Message):
     msg = await message.reply(f"🕒 Auto-delete time is set to {time_str}")
     await delete_bot_message(msg, seconds)
 
-# Handles ALL group messages, including bots & system
 @Client.on_message(filters.group)
 async def auto_delete_everything(client: Client, message: Message):
     chat_id = message.chat.id

@@ -21,4 +21,4 @@ A Telegram group bot built using [Pyrogram](https://docs.pyrogram.org/) that aut
 
 ```bash
 git clone https://github.com/GouthamSER/AutoDelete.git
-cd telegram-auto-delete-bot
+cd AutoDelete

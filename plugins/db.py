@@ -1,26 +1,39 @@
-import sqlite3
+# db.py
+import psycopg2
+import os
+from info import DATABASE_URL
 
-conn = sqlite3.connect("delete_times.db", check_same_thread=False)
-cur = conn.cursor()
 
-# Create the table to store delete times per group
-cur.execute("""
+
+
+conn = psycopg2.connect(DATABASE_URL)
+cursor = conn.cursor()
+
+# Create table if it doesn't exist
+cursor.execute("""
 CREATE TABLE IF NOT EXISTS delete_times (
-    chat_id INTEGER PRIMARY KEY,
-    delay INTEGER
-)
+    chat_id BIGINT PRIMARY KEY,
+    seconds INTEGER
+);
 """)
 conn.commit()
 
-def set_delete_time(chat_id: int, delay: int):
-    cur.execute("REPLACE INTO delete_times (chat_id, delay) VALUES (?, ?)", (chat_id, delay))
+def set_delete_time(chat_id: int, seconds: int):
+    cursor.execute(
+        """
+        INSERT INTO delete_times (chat_id, seconds)
+        VALUES (%s, %s)
+        ON CONFLICT (chat_id) DO UPDATE SET seconds = EXCLUDED.seconds;
+        """,
+        (chat_id, seconds)
+    )
     conn.commit()
 
-def get_delete_time(chat_id: int) -> int | None:
-    cur.execute("SELECT delay FROM delete_times WHERE chat_id = ?", (chat_id,))
-    row = cur.fetchone()
+def get_delete_time(chat_id: int):
+    cursor.execute("SELECT seconds FROM delete_times WHERE chat_id = %s", (chat_id,))
+    row = cursor.fetchone()
     return row[0] if row else None
 
-def load_all_delete_times() -> dict:
-    cur.execute("SELECT chat_id, delay FROM delete_times")
-    return {chat_id: delay for chat_id, delay in cur.fetchall()}
+def get_all_delete_times():
+    cursor.execute("SELECT chat_id, seconds FROM delete_times")
+    return dict(cursor.fetchall())

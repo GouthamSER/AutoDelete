@@ -1,6 +1,6 @@
 import psycopg2
 import os
-
+from info import DATABASE_URL
 
 # Connect to PostgreSQL
 conn = psycopg2.connect(DATABASE_URL)

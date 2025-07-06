@@ -1,35 +1,33 @@
-import psycopg2
+# db.py
 import os
-from info import DATABASE_URL
+from pymongo import MongoClient
+from pymongo.errors import ConnectionFailure
+from info import *
 
-def get_connection():
-    return psycopg2.connect(DATABASE_URL)
 
-def set_delete_time(chat_id: int, delay: int):
-    with get_connection() as conn:
-        with conn.cursor() as cursor:
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS delete_times (
-                    chat_id BIGINT PRIMARY KEY,
-                    delay INTEGER NOT NULL
-                );
-            """)
-            cursor.execute("""
-                INSERT INTO delete_times (chat_id, delay)
-                VALUES (%s, %s)
-                ON CONFLICT (chat_id)
-                DO UPDATE SET delay = EXCLUDED.delay;
-            """, (chat_id, delay))
+# Connect to MongoDB
+try:
+    client = MongoClient(DATABASE_URI, serverSelectionTimeoutMS=5000)
+    client.admin.command('ping')  # Test connection
+    print("✅ MongoDB connected!")
+except ConnectionFailure as e:
+    print("❌ MongoDB connection failed:", e)
+    exit(1)
 
-def get_delete_time(chat_id: int):
-    with get_connection() as conn:
-        with conn.cursor() as cursor:
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS delete_times (
-                    chat_id BIGINT PRIMARY KEY,
-                    delay INTEGER NOT NULL
-                );
-            """)
-            cursor.execute("SELECT delay FROM delete_times WHERE chat_id = %s;", (chat_id,))
-            row = cursor.fetchone()
-            return row[0] if row else None
+db = client[DATABASE_NAME]
+col = db[COLLECTION_NAME]
+
+# --- Functions for Bot Use ---
+
+def set_autodelete(chat_id: int, seconds: int):
+    """Insert or update auto-delete setting for a chat."""
+    col.update_one(
+        {"chat_id": chat_id},
+        {"$set": {"seconds": seconds}},
+        upsert=True
+    )
+
+def get_autodelete(chat_id: int):
+    """Get auto-delete time for a chat."""
+    rec = col.find_one({"chat_id": chat_id})
+    return rec["seconds"] if rec else None

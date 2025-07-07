@@ -2,4 +2,5 @@ pyrogram==2.0.106
 tgcrypto==1.2.5
 aiohttp==3.9.5
 asyncio
-psycopg2-binary
+pymongo>=4.0.0
+dnspython>=2.0.0  # Required if using MongoDB Atlas with SRV connection strings

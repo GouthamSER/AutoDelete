@@ -3,7 +3,7 @@ from pyrogram.types import Message
 import asyncio
 import re
 from info import ADMINS
-from plugins.db import set_delete_time, get_delete_time
+from plugins.db import set_autodelete as set_delete_time, get_autodelete as get_delete_time
 
 def parse_time(time_str):
     match = re.match(r"^(\d+)(s|m|h|hr)$", time_str.lower().strip())

@@ -5,9 +5,9 @@ API_HASH = environ.get('API_HASH', '')
 BOT_TOKEN = environ.get('BOT_TOKEN', '')
 # Example format for Koyeb PostgreSQL URL:
 
-DATABASE_URI = os.environ("DATABASE_URI")
-DATABASE_NAME = os.environ("DATABASE_NAME", "autodelete")
-COLLECTION_NAME = os.environ("COLLECTION", "chats")
+DATABASE_URI = environ.get("DATABASE_URI")
+DATABASE_NAME = environ.get("DATABASE_NAME", "autodelete")
+COLLECTION_NAME = environ.get("COLLECTION", "chats")
 
 
 # Support multiple admin user IDs

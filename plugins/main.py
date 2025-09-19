@@ -149,35 +149,49 @@ async def auto_delete_everything(client: Client, message: Message):
 # =========================
 # Delete Forwarded Spam
 # =========================
-@Client.on_message(filters.forwarded & filters.group)
+
+@Client.on_message(filters.group)
 async def delete_forwarded_spam(client: Client, message: Message):
     try:
-        user_id = message.from_user.id
+        user_id = message.from_user.id if message.from_user else None
         chat_id = message.chat.id
-        user_name = message.from_user.first_name
+        user_name = message.from_user.first_name if message.from_user else "Unknown"
 
         # ✅ Skip admins/owner
-        if await is_authorized(client, chat_id, user_id):
+        if user_id and await is_authorized(client, chat_id, user_id):
             return  
 
-        # Check spam conditions
-        has_buttons = bool(message.reply_markup and message.reply_markup.inline_keyboard)
-        has_spam_text = any(
-            word in (message.text or "").lower()
-            for word in ["click", "baby", "clothes"]
-        )
-
-        if has_buttons or has_spam_text:
-            # 🗑 Delete spam
+        # =========================
+        # 1) Detect spam links/usernames
+        # =========================
+        if message.text and re.search(
+            r'(?im)(?:https?://|www\.|t\.me/|telegram\.dog/)\S+|@[a-z0-9_]{5,32}\b',
+            message.text,
+        ):
             await message.delete()
-
-            # 📝 Send log message in Telegram group
             await client.send_message(
                 chat_id,
-                f"⚠️ Deleted forwarded spam from [{user_name}](tg://user?id={user_id})."
+                f"⚠️ Link/mention from [{user_name}](tg://user?id={user_id}) was deleted."
+            )
+            print(f"🗑 Deleted link/mention from {user_name} (ID: {user_id}) in chat {chat_id}")
+            return  
+
+        # =========================
+        # 2) Detect forwarded spam
+        # =========================
+        if message.forward_date:  # only forwarded messages
+            has_buttons = bool(message.reply_markup and message.reply_markup.inline_keyboard)
+            has_spam_text = any(
+                word in (message.text or "").lower()
+                for word in ["click", "baby", "clothes"]
             )
 
-            # 💻 Log in terminal too
-            print(f"🗑 Deleted forwarded spam from {user_name} (ID: {user_id}) in chat {chat_id}")
+            if has_buttons or has_spam_text:
+                await message.delete()
+                await client.send_message(
+                    chat_id,
+                    f"⚠️ Forwarded spam from [{user_name}](tg://user?id={user_id}) was deleted."
+                )
+                print(f"🗑 Deleted forwarded spam from {user_name} (ID: {user_id}) in chat {chat_id}")
     except Exception as e:
-        print(f"❌ Failed to delete forwarded spam: {e}")
+        print(f"❌ Failed spam check: {e}")

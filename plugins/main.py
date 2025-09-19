@@ -5,6 +5,10 @@ import re
 from info import ADMINS
 from plugins.db import set_autodelete as set_delete_time, get_autodelete as get_delete_time
 
+
+# =========================
+# Helper Functions
+# =========================
 def parse_time(time_str):
     match = re.match(r"^(\d+)(s|m|h|hr)$", time_str.lower().strip())
     if not match:
@@ -12,6 +16,7 @@ def parse_time(time_str):
     val, unit = match.groups()
     val = int(val)
     return val * {"s": 1, "m": 60, "h": 3600, "hr": 3600}[unit]
+
 
 async def is_authorized(client: Client, chat_id: int, user_id: int) -> bool:
     if user_id in ADMINS:
@@ -22,6 +27,7 @@ async def is_authorized(client: Client, chat_id: int, user_id: int) -> bool:
     except Exception as e:
         print(f"Authorization check failed: {e}")
         return False
+
 
 async def get_user_status(client: Client, chat_id: int, user_id: int) -> str:
     try:
@@ -36,12 +42,14 @@ async def get_user_status(client: Client, chat_id: int, user_id: int) -> str:
         print(f"Failed to check user status: {e}")
         return "unknown"
 
+
 async def delete_user_message(msg: Message, delay: int):
     await asyncio.sleep(delay)
     try:
         await msg.delete()
     except Exception as e:
         print(f"❌ Failed to delete user message: {e}")
+
 
 async def delete_bot_message(msg: Message, delay: int):
     await asyncio.sleep(delay)
@@ -50,6 +58,10 @@ async def delete_bot_message(msg: Message, delay: int):
     except Exception as e:
         print(f"❌ Failed to delete bot message: {e}")
 
+
+# =========================
+# Commands
+# =========================
 @Client.on_message(filters.command("settime") & filters.group)
 async def set_delete_time_cmd(client: Client, message: Message):
     user_id = message.from_user.id
@@ -68,6 +80,7 @@ async def set_delete_time_cmd(client: Client, message: Message):
     set_delete_time(chat_id, seconds)
     msg = await message.reply(f"✅ Auto-delete time set to {message.command[1]}")
     await delete_bot_message(msg, seconds)
+
 
 @Client.on_message(filters.command("deltime") & filters.group)
 async def get_delete_time_cmd(client: Client, message: Message):
@@ -90,6 +103,7 @@ async def get_delete_time_cmd(client: Client, message: Message):
 
     msg = await message.reply(f"🕒 Auto-delete time is set to {time_str}")
     await delete_bot_message(msg, seconds)
+
 
 @Client.on_message(filters.command("checkadmin") & filters.group)
 async def check_admin_status(client: Client, message: Message):
@@ -117,6 +131,10 @@ async def check_admin_status(client: Client, message: Message):
     if seconds:
         await delete_bot_message(msg, seconds)
 
+
+# =========================
+# Auto Delete Normal Messages
+# =========================
 @Client.on_message(filters.group)
 async def auto_delete_everything(client: Client, message: Message):
     chat_id = message.chat.id
@@ -126,3 +144,40 @@ async def auto_delete_everything(client: Client, message: Message):
         return  # No auto-delete time set for this group
 
     await delete_user_message(message, delay)
+
+
+# =========================
+# Delete Forwarded Spam
+# =========================
+@Client.on_message(filters.forwarded & filters.group)
+async def delete_forwarded_spam(client: Client, message: Message):
+    try:
+        user_id = message.from_user.id
+        chat_id = message.chat.id
+        user_name = message.from_user.first_name
+
+        # ✅ Skip admins/owner
+        if await is_authorized(client, chat_id, user_id):
+            return  
+
+        # Check spam conditions
+        has_buttons = bool(message.reply_markup and message.reply_markup.inline_keyboard)
+        has_spam_text = any(
+            word in (message.text or "").lower()
+            for word in ["click", "baby", "clothes"]
+        )
+
+        if has_buttons or has_spam_text:
+            # 🗑 Delete spam
+            await message.delete()
+
+            # 📝 Send log message in Telegram group
+            await client.send_message(
+                chat_id,
+                f"⚠️ Deleted forwarded spam from [{user_name}](tg://user?id={user_id})."
+            )
+
+            # 💻 Log in terminal too
+            print(f"🗑 Deleted forwarded spam from {user_name} (ID: {user_id}) in chat {chat_id}")
+    except Exception as e:
+        print(f"❌ Failed to delete forwarded spam: {e}")

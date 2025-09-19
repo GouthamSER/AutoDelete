@@ -4,7 +4,7 @@ import asyncio
 import re
 from info import ADMINS
 from plugins.db import set_autodelete as set_delete_time, get_autodelete as get_delete_time
-
+from pyrogram.errors import FloodWait
 
 # =========================
 # Helper Functions
@@ -150,7 +150,32 @@ async def auto_delete_everything(client: Client, message: Message):
 # Delete Forwarded Spam
 # =========================
 
-@Client.on_message(filters.group)
+
+# ✅ Add more suspicious domains here
+SUSPICIOUS_DOMAINS = [
+    "xyz", "top", "online", "shop", "click", "fun", "live", "site",
+    "space", "buzz", "club", "cam", "link", "rest", "work"
+]
+
+# ✅ Regex for links, usernames, and suspicious domains
+PATTERN = rf'(?im)(?:https?://|www\.|t\.me/|telegram\.dog/|\w+\.({"|".join(SUSPICIOUS_DOMAINS)}))\S+|@[a-z0-9_]{5,32}\b'
+
+async def is_authorized(client: Client, chat_id: int, user_id: int) -> bool:
+    """
+    Check if user is admin/owner in the group.
+    """
+    try:
+        member = await client.get_chat_member(chat_id, user_id)
+        return member.privileges and (
+            member.privileges.can_delete_messages
+            or member.privileges.can_restrict_members
+            or member.status in ("administrator", "creator")
+        )
+    except Exception:
+        return False
+
+
+@Client.on_message(filters.text | filters.caption | filters.group)  # works everywhere
 async def delete_forwarded_spam(client: Client, message: Message):
     try:
         user_id = message.from_user.id if message.from_user else None
@@ -162,13 +187,18 @@ async def delete_forwarded_spam(client: Client, message: Message):
             return  
 
         # =========================
-        # 1) Detect spam links/usernames
+        # 1) Detect spam links/usernames/domains
         # =========================
-        if message.text and re.search(
-            r'(?im)(?:https?://|www\.|t\.me/|telegram\.dog/)\S+|@[a-z0-9_]{5,32}\b',
-            message.text,
-        ):
-            await message.delete()
+        text = message.text or message.caption
+        if text and re.search(PATTERN, text):
+            try:
+                await message.delete()
+            except FloodWait as e:
+                await asyncio.sleep(e.value)
+                await message.delete()
+            except Exception as e:
+                print(f"❌ Delete failed: {e}")
+                return
             await client.send_message(
                 chat_id,
                 f"⚠️ Link/mention from [{user_name}](tg://user?id={user_id}) was deleted."
@@ -179,19 +209,27 @@ async def delete_forwarded_spam(client: Client, message: Message):
         # =========================
         # 2) Detect forwarded spam
         # =========================
-        if message.forward_date:  # only forwarded messages
+        if message.forward_date or message.forward_from or message.forward_from_chat:
             has_buttons = bool(message.reply_markup and message.reply_markup.inline_keyboard)
             has_spam_text = any(
-                word in (message.text or "").lower()
-                for word in ["click", "baby", "clothes"]
+                word in (text or "").lower()
+                for word in ["click", "baby", "clothes", "offer", "deal", "win"]
             )
 
             if has_buttons or has_spam_text:
-                await message.delete()
+                try:
+                    await message.delete()
+                except FloodWait as e:
+                    await asyncio.sleep(e.value)
+                    await message.delete()
+                except Exception as e:
+                    print(f"❌ Delete failed: {e}")
+                    return
                 await client.send_message(
                     chat_id,
                     f"⚠️ Forwarded spam from [{user_name}](tg://user?id={user_id}) was deleted."
                 )
                 print(f"🗑 Deleted forwarded spam from {user_name} (ID: {user_id}) in chat {chat_id}")
+
     except Exception as e:
         print(f"❌ Failed spam check: {e}")

@@ -143,33 +143,24 @@ SUSPICIOUS_DOMAINS = [
 # Regex to detect links/usernames/suspicious domains
 PATTERN = rf'(?im)(?:https?://|www\.|t\.me/|telegram\.dog/|\w+\.({"|".join(SUSPICIOUS_DOMAINS)}))\S+|@[a-z0-9_]{5,32}\b'
 
-@Client.on_message(filters.text | filters.caption)
+@Client.on_message(filters.all)
 async def handle_all_messages(client: Client, message: Message):
     chat_id = message.chat.id
     user_id = message.from_user.id if message.from_user else None
     user_name = message.from_user.first_name if message.from_user else "Unknown"
-    text = message.text or message.caption
+    text = message.text or message.caption or ""
 
     # =========================
     # 1. Detect spam links/usernames
     # =========================
-    if text and re.search(PATTERN, text):
+    if re.search(PATTERN, text):
         try:
             await message.delete()
         except FloodWait as e:
             await asyncio.sleep(e.value)
             await message.delete()
-        except Exception as e:
-            print(f"❌ Failed to delete spam link: {e}")
-            return
-
-        if message.chat.type != "private":
-            await client.send_message(
-                chat_id,
-                f"⚠️ Link/mention from [{user_name}](tg://user?id={user_id}) was deleted."
-            )
         print(f"🗑 Deleted spam link from {user_name} (ID: {user_id})")
-        return
+        return   # ⬅ prevent going further (no settime)
 
     # =========================
     # 2. Detect forwarded spam
@@ -177,27 +168,18 @@ async def handle_all_messages(client: Client, message: Message):
     if message.forward_date or message.forward_from or message.forward_from_chat:
         has_buttons = bool(message.reply_markup and message.reply_markup.inline_keyboard)
         has_spam_text = any(
-            word in (text or "").lower()
+            word in text.lower()
             for word in ["click", "baby", "clothes", "offer", "deal", "win"]
         )
 
-        if has_buttons or has_spam_text:
+        if re.search(PATTERN, text) or has_buttons or has_spam_text:
             try:
                 await message.delete()
             except FloodWait as e:
                 await asyncio.sleep(e.value)
                 await message.delete()
-            except Exception as e:
-                print(f"❌ Failed to delete forwarded spam: {e}")
-                return
-
-            if message.chat.type != "private":
-                await client.send_message(
-                    chat_id,
-                    f"⚠️ Forwarded spam from [{user_name}](tg://user?id={user_id}) was deleted."
-                )
             print(f"🗑 Deleted forwarded spam from {user_name} (ID: {user_id})")
-            return
+            return   # ⬅ prevent going further (no settime)
 
     # =========================
     # 3. Auto-delete regular messages (only in group, if /settime is used)

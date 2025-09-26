@@ -134,10 +134,27 @@ async def check_admin_status(client: Client, message: Message):
 # Spam Protection + Auto Delete (PM + Groups)
 # =========================
 
-# Suspicious domains
+# Suspicious domains (extended list with shorteners)
 SUSPICIOUS_DOMAINS = [
+    # Your existing ones
     "xyz", "top", "online", "shop", "click", "fun", "live", "site",
-    "space", "buzz", "club", "cam", "link", "rest", "work"
+    "space", "buzz", "club", "cam", "link", "rest", "work",
+
+    # Common spammy TLDs
+    "icu", "best", "fit", "today", "monster", "gq", "ml", "cf", "tk",
+    "party", "stream", "download", "racing", "men", "date", "loan", "cricket",
+    "surf", "host", "press", "pw", "review", "accountant", "science", "win",
+    "bid", "faith", "trade", "webcam", "sexy", "porn", "xxx",
+
+    # Suspicious marketing/crypto/etc
+    "beauty", "hair", "makeup", "skin", "diet", "cheap", "free", "shop",
+    "money", "deal", "offers", "discount", "gift", "lotto", "bet", "casino",
+    "crypto", "token", "nft",
+
+    # Popular shorteners
+    "bit\.ly", "cutt\.ly", "tinyurl\.com", "t\.co", "shorturl\.at", "is\.gd",
+    "soo\.gd", "s2r\.co", "ouo\.io", "adf\.ly", "shorte\.st", "bc\.vc",
+    "rebrand\.ly", "lnkd\.in", "buff\.ly", "bl\.ink"
 ]
 
 # Regex to detect links/usernames/suspicious domains
@@ -150,17 +167,33 @@ async def handle_all_messages(client: Client, message: Message):
     user_name = message.from_user.first_name if message.from_user else "Unknown"
     text = message.text or message.caption or ""
 
+    # Skip service messages and bot messages
+    if not user_id or message.from_user.is_bot:
+        return
+
+    # =========================
+    # Check if user is admin/owner
+    # =========================
+    try:
+        member = await client.get_chat_member(chat_id, user_id)
+        is_admin_or_owner = member.status in ("administrator", "creator")
+    except Exception:
+        is_admin_or_owner = False
+
     # =========================
     # 1. Detect spam links/usernames
     # =========================
     if re.search(PATTERN, text):
-        try:
-            await message.delete()
-        except FloodWait as e:
-            await asyncio.sleep(e.value)
-            await message.delete()
-        print(f"🗑 Deleted spam link from {user_name} (ID: {user_id})")
-        return   # ⬅ prevent going further (no settime)
+        if not is_admin_or_owner:  # delete only if NOT admin/owner
+            try:
+                await message.delete()
+            except FloodWait as e:
+                await asyncio.sleep(e.value)
+                await message.delete()
+            print(f"🗑 Deleted spam link from {user_name} (ID: {user_id})")
+            return
+        else:
+            print(f"✅ Skipped spam link from admin/owner {user_name} (ID: {user_id})")
 
     # =========================
     # 2. Detect forwarded spam
@@ -173,13 +206,16 @@ async def handle_all_messages(client: Client, message: Message):
         )
 
         if re.search(PATTERN, text) or has_buttons or has_spam_text:
-            try:
-                await message.delete()
-            except FloodWait as e:
-                await asyncio.sleep(e.value)
-                await message.delete()
-            print(f"🗑 Deleted forwarded spam from {user_name} (ID: {user_id})")
-            return   # ⬅ prevent going further (no settime)
+            if not is_admin_or_owner:  # delete only if NOT admin/owner
+                try:
+                    await message.delete()
+                except FloodWait as e:
+                    await asyncio.sleep(e.value)
+                    await message.delete()
+                print(f"🗑 Deleted forwarded spam from {user_name} (ID: {user_id})")
+                return
+            else:
+                print(f"✅ Skipped forwarded spam from admin/owner {user_name} (ID: {user_id})")
 
     # =========================
     # 3. Auto-delete regular messages (only in group, if /settime is used)

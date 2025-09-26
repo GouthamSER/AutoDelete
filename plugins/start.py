@@ -23,8 +23,8 @@ async def start_command(client: Client, message: Message):
 
     is_admin = user_id in ADMINS  # check if user is an authorized admin
 
+    # ========== PRIVATE CHAT ==========
     if chat.type == enums.ChatType.PRIVATE:
-        # Private chat welcome text
         text = (
             f"👋 Hello, **{user}**!\n\n"
             "I'm an Auto-Delete Bot for Telegram groups.\n"
@@ -40,7 +40,6 @@ async def start_command(client: Client, message: Message):
         else:
             text += "ℹ️ You are a **normal member**. Only admins can configure the bot."
 
-        # Show settings button to everyone (popup for non-admins handled in callback)
         reply_buttons = [
             [InlineKeyboardButton("📚 Help", callback_data="help")],
             [InlineKeyboardButton("➕ Add to Group", url=f"https://t.me/{client.me.username}?startgroup=true")],
@@ -53,20 +52,17 @@ async def start_command(client: Client, message: Message):
             reply_markup=InlineKeyboardMarkup(reply_buttons)
         )
 
-    else:  # If /start is used inside a group
-        if is_admin:
-            await message.reply(
-                "✅ **Bot is active in this group.**\n"
-                "You are an admin, so you can use `/settime` and `/restart`.\n",
-                parse_mode=enums.ParseMode.MARKDOWN
-            )
-        else:
-            await message.reply(
-                "✅ **Bot is active in this group.**\n"
-                "Only admins can configure auto-delete settings.\n"
-                "You can still use `/start` in private chat to learn more.",
-                parse_mode=enums.ParseMode.MARKDOWN
-            )
+    # ========== GROUP CHAT ==========
+    else:
+        reply_buttons = [
+            [InlineKeyboardButton("⚙️ Open Bot Settings", url=f"https://t.me/{client.me.username}?start=group")]
+        ]
+        await message.reply(
+            "✅ **Bot is active in this group.**\n\n"
+            "👉 To configure auto-delete or view settings, please open me in **private chat**.",
+            parse_mode=enums.ParseMode.MARKDOWN,
+            reply_markup=InlineKeyboardMarkup(reply_buttons)
+        )
 
 
 # =========================
@@ -123,7 +119,6 @@ async def callback_query_handler(client: Client, callback_query: CallbackQuery):
 
         elif data == "settings":
             if user_id not in ADMINS:
-                # Popup alert for non-admins
                 await callback_query.answer("🚫 Only admins can access settings.", show_alert=True)
                 return
 
